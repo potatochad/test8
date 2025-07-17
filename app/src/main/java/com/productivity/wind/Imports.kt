@@ -1,5 +1,6 @@
 package com.productivity.wind
 
+import Screens.MainHeader
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -102,11 +103,20 @@ import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.jvm.isAccessible
 
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -747,49 +757,6 @@ fun ReloadButton(navController: NavController) {
 
 //endregion
 
-//region Task..._inputs
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun InputField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholderText: String,
-    modifier: Modifier = Modifier
-        .background(Color.Black), // Default background
-    isNumber: Boolean = false,
-    focusRequester: FocusRequester? = null,
-    onDone: (() -> Unit)? = null
-) {
-    Spacer(modifier = Modifier.width(8.dp))
-
-    TextField(
-        value = value,
-        onValueChange = {
-            val parsed = if (isNumber) it.toIntOrNull()?.toString() ?: "0" else it
-            onValueChange(parsed)
-        },
-        placeholder = { Text(placeholderText, color = Color.LightGray) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions.Default.copy(
-            keyboardType = if (isNumber) KeyboardType.Number else KeyboardType.Text,
-            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default
-        ),
-        keyboardActions = KeyboardActions(
-            onDone = { onDone?.invoke() }
-        ),
-        modifier = modifier.then(
-            focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier
-        )
-    )
-
-    Spacer(modifier = Modifier.width(8.dp))
-}
-
-
-
-//endregion
-
 //region Submit_Icon
 
 @Composable
@@ -864,7 +831,60 @@ fun ShowMore(
 //endregion
 
 
+
 //region SCREENS
+
+
+@Composable
+inline fun <reified T> SmartInputField(
+    value: T,
+    noinline onValueChange: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    width: Dp = 80.dp // default small width
+) {
+    var text by remember { mutableStateOf(value.toString()) }
+
+    val keyboardType = when (T::class) {
+        Byte::class, Short::class, Int::class, Long::class,
+        Float::class, Double::class -> KeyboardType.Number
+        else -> KeyboardType.Text
+    }
+
+    TextField(
+        value = text,
+        onValueChange = { newText ->
+            text = newText
+            val parsed: T? = when (T::class) {
+                Byte::class   -> newText.toByteOrNull()   as T?
+                Short::class  -> newText.toShortOrNull()  as T?
+                Int::class    -> newText.toIntOrNull()    as T?
+                Long::class   -> newText.toLongOrNull()   as T?
+                Float::class  -> newText.toFloatOrNull()  as T?
+                Double::class -> newText.toDoubleOrNull() as T?
+                String::class -> newText                  as T
+                else          -> null
+            }
+            parsed?.let { onValueChange(it) }
+        },
+        textStyle = LocalTextStyle.current.copy(fontSize = 20.sp),
+        modifier = modifier
+            .width(width)
+            .height(50.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = TextFieldDefaults.colors(
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            focusedContainerColor = Color(0xFF1A1A1A),
+            unfocusedContainerColor = Color(0xFF1A1A1A),
+            cursorColor = Color(0xFFFFD700),
+            focusedIndicatorColor = Color(0xFFFFD700),
+            unfocusedIndicatorColor = Color.DarkGray
+        ),
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp)
+    )
+}
+
 
 @Composable
 fun OnOffSwitch(isOn: Boolean, onToggle: (Boolean) -> Unit) {
@@ -1093,11 +1113,38 @@ fun SettingsScreen(
 }
 
 
+@Composable
+fun Screen_Layout(
+    title: @Composable () -> Unit,
+    showBack: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    SettingsScreen(
+        titleContent = { title() },
+        showBack = showBack,
+        showSearch = false
+    ) {
+        Card(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                content()
+            }
+        }
+    }
+}
+
+
 
 //endregion
 
 
-//region LAZY POPUP
+//region LAZY ITEMS...
 
 /* Example
 LazyPopup(
@@ -1117,16 +1164,19 @@ fun LazyPopup(
     showCancel: Boolean = true,
     showConfirm: Boolean = true,
     onConfirm: (() -> Unit)? = null,
-    onCancel: (() -> Unit)? = null
+    onCancel: (() -> Unit)? = null,
+    Dismisable: Boolean = true,
 ) {
 
     if (!show.value) {return}
 
     AlertDialog(
         onDismissRequest = {
-            onDismiss?.invoke()
+            if (Dismisable) {
+                onDismiss?.invoke()
 
-            show.value = false
+                show.value = false
+            }
         },
         title = { Text(title) },
         text = { if (content == null) {Text(message) }

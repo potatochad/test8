@@ -1,8 +1,12 @@
 package com.productivity.wind
 
 
+import Screens.Achievements
+import Screens.ConfigureScreen
 import Screens.DayChecker
-import Screens.MyNavGraph
+import Screens.Main
+import Screens.SettingsP_Screen
+import Screens.Settings_Difficulty
 import Screens.isDeviceAdminEnabled
 import androidx.compose.runtime.mutableStateOf
 
@@ -36,12 +40,14 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.widget.Button
 import android.accessibilityservice.AccessibilityService
+import android.app.AlertDialog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.graphics.Rect
 import android.os.Bundle
+import android.service.notification.NotificationListenerService
 import android.view.Surface
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -52,8 +58,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.productivity.wind.ui.theme.KeepAliveTheme
 
@@ -61,6 +70,7 @@ class Settings {
     var funTime by mutableStateOf(0)
     var showBlockScreen by mutableStateOf(true)
     var currentApp by mutableStateOf("")
+    var HowMuchForGodMode by mutableStateOf(1)
 
     //region COPY PASTE THING Disipline
 
@@ -155,11 +165,6 @@ class Settings {
 }
 
 
-
-
-
-
-// Main function to get installed apps and their icons
 
 data class apps(
     var id: String = UUID.randomUUID().toString(),
@@ -298,37 +303,47 @@ class WatchdogService : Service() {
         NotificationHelper(this).createNotificationChannel()
         startForeground(1, NotificationHelper(this).buildNotification(),)
         Global1.context = this
-        if (Bar.BlockingEnabled) {
-            if (OneJob == null || OneJob?.isActive == false) {
-                OneJob = serviceScope.launch {
-                    while (true) {
+
+        if (OneJob == null || OneJob?.isActive == false) {
+            OneJob = serviceScope.launch {
+                while (true) {
+                    if (Bar.BlockingEnabled) {
 
                         //region SAFETY PURPOSES
 
                         delay(1000L)
-                        Bar.COUNT +=1
+                        Bar.COUNT += 1
 
                         //endregion
 
 
                         //region CURRENT APP
 
-                        val usageStatsManager = Global1.context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                        val usageStatsManager =
+                            Global1.context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
                         val NowTime = System.currentTimeMillis()
 
                         /*
-                        * THIS IS NOT SUPER ACCURATE
-                        ? If you want better precision, you’ll need an Accessibility Service.
-                        !THIS REQUIRES NAVIGATING USER TO IT*/
-                        val AppsUsed = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, NowTime - 20_000, NowTime)
+                    * THIS IS NOT SUPER ACCURATE
+                    ? If you want better precision, you’ll need an Accessibility Service.
+                    !THIS REQUIRES NAVIGATING USER TO IT*/
+                        val AppsUsed = usageStatsManager.queryUsageStats(
+                            UsageStatsManager.INTERVAL_DAILY,
+                            NowTime - 20_000,
+                            NowTime
+                        )
                         val currentApp = AppsUsed?.maxByOrNull { it.lastTimeUsed }?.packageName
 
                         //LOG WHEN WANT TOOO
-                        if (currentApp == Global1.context.packageName || currentApp == null) { } else { log("BACKGROUND — CURRENT APP: $currentApp", "bad") }
+                        if (currentApp == Global1.context.packageName || currentApp == null) {
+                        } else {
+                            log("BACKGROUND — CURRENT APP: $currentApp", "bad")
+                        }
 
                         //endregion CURRENT APP
 
-                        val blocked = Blist.apps.any { it.packageName.value == currentApp && it.Block.value }
+                        val blocked =
+                            Blist.apps.any { it.packageName.value == currentApp && it.Block.value }
 
                         if (blocked) {
                             if (Bar.funTime > 0) {
@@ -336,7 +351,10 @@ class WatchdogService : Service() {
                                 log("BACKGROUND---Spending Time??:::${Bar.funTime};", "bad")
                             } else {
                                 BlockScreen()
-                                log("BACKGROUND---Blocking APP:::${currentApp}; ${Bar.COUNT}", "bad")
+                                log(
+                                    "BACKGROUND---Blocking APP:::${currentApp}; ${Bar.COUNT}",
+                                    "bad"
+                                )
                             }
                         }
 //                        if (currentApp == ) {
@@ -350,34 +368,35 @@ class WatchdogService : Service() {
 //                        }
 
 
+                        if (currentApp == "com.android.settings") {
 
-                    if (currentApp == "com.android.settings") {
-
-                        if (Bar.funTime >1_000) {
-                            log("BACKGROUND---Spending Time??:::${Bar.funTime};", "bad")
-                        }
-                        else {
-                            if (isDeviceAdminEnabled(Global1.context)) {
-                                BlockScreen()
-                                log("BACKGROUND---Blocking APP:::${currentApp}; ${Bar.COUNT}", "bad")
-                            }
-                        }
-                    }
-
-
-
-                    if (currentApp == "com.seekrtech.waterapp") {
-                        log("NEW DAY??; ${Bar.NewDay}", "bad")
-                        log("waterdo time; ${Bar.WaterDOtime_spent}", "bad")
-                        if (Bar.NewDay) {
-                            if (Bar.WaterDOtime_spent > 50) {
-                                Bar.funTime += 900
-                                Bar.NewDay = false
+                            if (Bar.funTime > 1_000) {
+                                log("BACKGROUND---Spending Time??:::${Bar.funTime};", "bad")
                             } else {
-                                Bar.WaterDOtime_spent += 1
+                                if (isDeviceAdminEnabled(Global1.context)) {
+                                    BlockScreen()
+                                    log(
+                                        "BACKGROUND---Blocking APP:::${currentApp}; ${Bar.COUNT}",
+                                        "bad"
+                                    )
+                                }
                             }
                         }
-                    }
+
+                        if (currentApp == "com.microsoft.office.onenote") {
+                            if (Bar.funTime > 2_000) {
+                                log("BACKGROUND---Spending Time??:::${Bar.funTime};", "bad")
+                            } else {
+
+                                BlockScreen()
+                                log(
+                                    "BACKGROUND---Blocking APP:::${currentApp}; ${Bar.COUNT}",
+                                    "bad"
+                                )
+
+                            }
+                        }
+
                         if (currentApp == "com.seekrtech.waterapp") {
                             log("NEW DAY??; ${Bar.NewDay}", "bad")
                             log("waterdo time; ${Bar.WaterDOtime_spent}", "bad")
@@ -392,11 +411,11 @@ class WatchdogService : Service() {
                         }
 
 
-
                     }
                 }
             }
         }
+
 
         return START_STICKY
     }
@@ -414,7 +433,76 @@ class WatchdogService : Service() {
 
 
 
+//region NAVCONTROLLER AND OTHER
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MyNavGraph(navController: NavHostController) {
+    NavHost(navController = navController, startDestination = "Main") {
+        composable("Main") {
+            Main()
+        }
+        composable("Achievements") {
+            Achievements()
+        }
+        composable("ConfigureScreen") {
+            ConfigureScreen()
+        }
+        composable("MainAddScreen") {
+            //MainAddScreen()
+        }
+
+        //region SETTINGS
+
+        composable("SettingsScreen") {
+            Screens.SettingsScreen()
+        }
+        composable("SettingsP_Screen") {
+            SettingsP_Screen()
+        }
+        composable("Settings_Difficulty") {
+            Settings_Difficulty()
+        }
+
+        //endregion SETTINGS
+    }
+}
+
+
+
+//!DISABLED
+@Composable
+fun AccessibilityPermission() {
+    val context = LocalContext.current
+    val serviceId = "${context.packageName}/${WatchdogAccessibilityService::class.java.name}"
+
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: ""
+
+    val isEnabled = enabledServices.contains(serviceId)
+
+    log("Service id AccessibilityPermission${serviceId} ", "bad")
+    log("isEnabled? AccessibilityPermission${isEnabled} ", "bad")
+    if (!isEnabled) {
+        //!Bar.AccesabilityPermission = false
+        AlertDialog.Builder(context)
+            .setTitle("Permission Needed")
+            .setMessage("Please enable accessibility for full features.")
+            .setPositiveButton("ok") { _, _ ->
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }
+            .show()
+    } else {
+        //!Bar.AccesabilityPermission = true
+    }
+}
+class MyNotificationListener : NotificationListenerService()
+
+//endregion NAVCONTROLLER AND OTHER
 
 //region OnAppStart
 

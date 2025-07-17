@@ -24,6 +24,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.*
@@ -38,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
@@ -47,25 +51,36 @@ import com.productivity.wind.Global1.context
 import com.productivity.wind.LazyMenu
 import com.productivity.wind.LazyPopup
 import com.productivity.wind.R
+import com.productivity.wind.Screen_Layout
 import com.productivity.wind.SettingItem
 import com.productivity.wind.SettingsScreen
 import com.productivity.wind.log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-
+import java.time.LocalDate
 
 
 @Composable
 fun Main() {
     LazyMenu { Menu();  }
     if (Bar.NewDay == true) { Bar.HowManyDoneRetypes_InDay = 0}
-
     NewDayWaterDo()
-    Screen_Layout(showBack = false){
+
+    Screen_Layout(showBack = false, title = { MainHeader() }){
+
         Disipline()
         German()
     }
+
+}
+
+@Composable
+fun AddButton(){
 
 }
 
@@ -213,30 +228,34 @@ fun German() {
 }
 
 
+object DayChecker {
+    private var job: Job? = null
+    private var lastDate: String = LocalDate.now().toString()
 
-//region UI ELEMENTS
+    fun start() {
+        if (job?.isActive == true) return  // Already running
 
-@Composable
-fun Screen_Layout(showBack: Boolean=true, content: @Composable () -> Unit) {
-    SettingsScreen(
-        titleContent = { MainHeader() },
-        showBack = showBack,
-        showSearch = false
-    ) {
-        Card(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                content()
+        job = CoroutineScope(Dispatchers.Default).launch {
+            while (coroutineContext.isActive) {
+                delay(60 * 1000L)
+                val today = LocalDate.now().toString()
+                if (today != lastDate) {
+                    lastDate = today
+                    onNewDay()
+                }
             }
         }
     }
+
+    private fun onNewDay() {
+        Bar.NewDay = true
+        Bar.WaterDOtime_spent = 0
+    }
 }
+
+
+//region UI ELEMENTS
+
 
 @Composable
 fun MainHeader(){
@@ -375,7 +394,163 @@ fun EditPopUp(show: MutableState<Boolean>) {
 }
 
 
+
+@Composable
+fun NewDayWaterDo() {
+    val context = LocalContext.current
+    var show = remember { mutableStateOf(Bar.NewDay) }
+    LazyPopup(
+        show = show,
+        title = "FREE 15M. DO WATERDO",
+        message = "Spend only 50s on waterdo app and get 900 POINTS!!!",
+        showCancel = false,
+        onConfirm = {
+            val intent = context.packageManager.getLaunchIntentForPackage("com.seekrtech.waterapp")
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } else {
+                log("WaterApp not installed", "bad")
+            }
+        },
+    )
+}
+
+
+@Composable
+fun MenuIcon() {
+    IconButton(onClick = { Bar.ShowMenu = true }) {
+        Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = "Menu",
+            tint = Color(0xFFFFD700)
+        )
+    }
+}
+@Composable
+fun EditIcon() {
+
+    //region THE SAFETY
+
+    val showBeginnerAlert = remember { mutableStateOf(false) }
+    val showVeteranAlert = remember { mutableStateOf(false) }
+
+    var BeginnerA_Title by remember { mutableStateOf("Get 100 points") }
+    var BeginnerA_Message by remember { mutableStateOf("Before being allowed to change the text, need a minimum of 100 points. [After changing the text once it increases permanantly to 1k]. This is to help you stay disiplined afterwards") }
+
+    var VeteranA_Title by remember { mutableStateOf("Get 1k points") }
+    var VeteranA_Message by remember { mutableStateOf("Need 1k points before changing the text: this is to help you stay disiplined") }
+
+
+    LazyPopup(show = showBeginnerAlert, title = BeginnerA_Title, message = BeginnerA_Message)
+    LazyPopup(show = showVeteranAlert, title = VeteranA_Title, message = VeteranA_Message)
+
+    //endregion THE SAFETY
+
+    val show = remember { mutableStateOf(false) }
+    EditPopUp(show = show)
+
+
+    IconButton(onClick = {
+        if (Bar.FirstEditText && Bar.funTime > 99) show.value=true
+        else if (!Bar.FirstEditText && Bar.funTime > 999) show.value=true
+        else if (Bar.FirstEditText) showBeginnerAlert.value = true
+        else if (!Bar.FirstEditText) showVeteranAlert.value = true
+    }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = "Edit",
+            tint = Color(0xFFFFD700)
+        )
+    }
+
+}
+
+
+@Composable
+fun ConfigureIcon() {
+
+    IconButton(onClick = {
+        Global1.navController.navigate("ConfigureScreen")
+    }
+
+
+
+
+    ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = "configure",
+            tint = Color(0xFFFFD700)
+        )
+    }
+
+}
+
+
+@Composable
+fun G_EditIcon() {
+
+    //region THE SAFETY
+
+    val showBeginnerAlert = remember { mutableStateOf(false) }
+    val showVeteranAlert = remember { mutableStateOf(false) }
+
+    var BeginnerA_Title by remember { mutableStateOf("Get 100 points") }
+    var BeginnerA_Message by remember { mutableStateOf("Before being allowed to change the text, need a minimum of 100 points. [After changing the text once it increases permanantly to 1k]. This is to help you stay disiplined afterwards") }
+
+    var VeteranA_Title by remember { mutableStateOf("Get 1k points") }
+    var VeteranA_Message by remember { mutableStateOf("Need 1k points before changing the text: this is to help you stay disiplined") }
+
+
+    LazyPopup(show = showBeginnerAlert, title = BeginnerA_Title, message = BeginnerA_Message)
+    LazyPopup(show = showVeteranAlert, title = VeteranA_Title, message = VeteranA_Message)
+
+    //endregion THE SAFETY
+
+    val show = remember { mutableStateOf(false) }
+    G_EditPopUp(show = show)
+
+
+    IconButton(onClick = {
+        if (Bar.G_FirstEditText && Bar.funTime > 99) show.value=true
+        else if (!Bar.G_FirstEditText && Bar.funTime > 999) show.value=true
+        else if (Bar.G_FirstEditText) showBeginnerAlert.value = true
+        else if (!Bar.G_FirstEditText) showVeteranAlert.value = true
+    }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = "Edit",
+            tint = Color(0xFFFFD700)
+        )
+    }
+
+}
+@Composable
+fun G_EditPopUp(show: MutableState<Boolean>) {
+    var TemporaryTargetText by remember { mutableStateOf("") }
+    TemporaryTargetText = Bar.G_targetText
+    LazyPopup(
+        show = show,
+        onDismiss = { TemporaryTargetText = Bar.G_targetText },
+        title = "Edit Text",
+        message = "",
+        content = {
+            OutlinedTextField(
+                value = TemporaryTargetText,
+                onValueChange = { TemporaryTargetText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp, max = 200.dp)
+                    .verticalScroll(rememberScrollState())
+            )
+        },
+        showCancel = true,
+        onConfirm = { Bar.G_targetText = TemporaryTargetText; Bar.G_FirstEditText = false },
+        onCancel = { TemporaryTargetText = Bar.G_targetText }
+    )
+}
+
 //endregion UI ELEMENTS
-
-
-

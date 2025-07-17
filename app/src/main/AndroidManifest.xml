@@ -16,7 +16,6 @@
 
 
     <application
-        android:name=".KeepAliveApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -42,7 +41,7 @@
             android:name=".WatchdogService"
             android:foregroundServiceType="specialUse" />
         <service
-            android:name="Screens.MyNotificationListener"
+            android:name="MyNotificationListener"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
@@ -58,16 +57,6 @@
                 android:resource="@xml/device_admin_receiver" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".broadcast.BootCompleteReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>
